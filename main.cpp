@@ -12,52 +12,6 @@ unsigned int load_key[4] = {0x3F08A79B, 0xE25CC287, 0x93D27AB9, 0x20DEA7BF},
 	mod_key[4], xor_key[4], enc_key[4], dec_key[4] = {},
 	matrix_orig[10][4], matrix_enc[10][4], dec_val[10][5];
 
-void encrypt(unsigned int dest[4], unsigned int src[4], unsigned int enc_key[4])
-{
-	unsigned int enc_val = 0;
-	for (int i = 0; i < 4; i++) {
-		dest[i] = (((/*xor_key[i] ^*/ src[i] /*^ enc_val*/) * enc_key[i]) % mod_key[i]);
-		enc_val = dest[i] & 0xFFFF;
-	}
-}
-
-void decrypt(unsigned int dest[4], unsigned int src[4], unsigned int dec_key[4])
-{
-	unsigned int dec_val = 0;
-	for (int i = 0; i < 4; i++) {
-		dest[i] = ((dec_key[i] * src[i]) % mod_key[i]) ^ xor_key[i] ^ dec_val;
-		dec_val = src[i] & 0xFFFF;
-	}
-}
-
-bool check_key(unsigned int key, unsigned int x, unsigned int y)
-{
-	unsigned int dec = ((key * matrix_enc[x][y]) % mod_key[y]) ^ xor_key[y] ^ dec_val[x][y];
-	dec_val[x][y + 1] = matrix_enc[x][y] & 0xFFFF;
-	return (matrix_orig[x][y] == dec);
-}
-
-bool recur_brutforce(unsigned int i)
-{
-	for (int a = 0, found = 0; a < 0x0000FFFF; a++, found = 0) {
-		for (int b = 0; b < 10; b++, found++) {
-			if (!check_key(a, b, i)) {
-				break;
-			}
-		}
-		if (found == 10) {
-			dec_key[i] = a;
-			if (i == 3) {
-				//printf("key found: %x %x %x %x\n", dec_key[0], dec_key[1], dec_key[2], dec_key[3]);
-				return true;//key found
-			} else if (recur_brutforce(i + 1)) {
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
 inline void xor_keyset()
 {
 	for (int i = 0; i < 4; i++) {
@@ -103,22 +57,22 @@ int main()
 
 	xor_keyset();
 
-	srand(time(NULL));
-	for (int x = 0; x < 10; x++) {
-		for (int y = 0; y < 4; y++) {
-			matrix_orig[x][y] = rand() % 0x100;
+	for (int i = 0; i < 4; i++) {
+		bool found = false;
+		for (int a = 0; a < 0xFFFF; a++) {
+			if ((enc_key[i] * a % mod_key[i]) == 1) {
+				dec_key[i] = a;
+				found = true;
+				break;
+			}
 		}
-		encrypt(matrix_enc[x], matrix_orig[x], enc_key);
+		if (!found) {
+			cout << "Key not found" << endl;
+			return 0;
+		}
 	}
 
-	memset(dec_val, 0, sizeof(dec_val));
-	if (recur_brutforce(0)) {
-		cout << "Key found" << endl;
-	} else {
-		cout << "Key not found" << endl;
-		system("pause");
-		return 0;
-	}
+	cout << "Key found" << endl;
 
 	xor_keyset();
 
@@ -138,6 +92,5 @@ int main()
 		return 0;
 	}
 
-	system("pause");
 	return 0;
 }
